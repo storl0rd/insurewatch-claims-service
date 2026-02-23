@@ -1,0 +1,16 @@
+fastapi==0.109.0
+uvicorn==0.27.0
+motor==3.3.2
+pymongo==4.6.1
+pydantic==2.5.3
+python-dotenv==1.0.0
+httpx==0.26.0
+
+# OpenTelemetry
+opentelemetry-api==1.24.0
+opentelemetry-sdk==1.24.0
+opentelemetry-exporter-otlp-proto-http==1.24.0
+opentelemetry-instrumentation-fastapi==0.45b0
+opentelemetry-instrumentation-pymongo==0.45b0
+opentelemetry-instrumentation-httpx==0.45b0
+opentelemetry-instrumentation-logging==0.45b0

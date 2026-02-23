@@ -1,0 +1,51 @@
+"""
+instrumentation.py - Initialize OpenTelemetry before anything else
+"""
+import os
+import logging
+from opentelemetry import trace, metrics
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.sdk.metrics import MeterProvider
+from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
+from opentelemetry.instrumentation.pymongo import PymongoInstrumentor
+from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
+from opentelemetry.instrumentation.logging import LoggingInstrumentor
+
+OTLP_ENDPOINT = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318")
+
+resource = Resource.create({
+    "service.name": "claims-service",
+    "service.version": "1.0.0",
+    "deployment.environment": os.getenv("ENVIRONMENT", "production"),
+    "service.language": "python",
+})
+
+# Traces
+tracer_provider = TracerProvider(resource=resource)
+tracer_provider.add_span_processor(
+    BatchSpanProcessor(OTLPSpanExporter(endpoint=f"{OTLP_ENDPOINT}/v1/traces"))
+)
+trace.set_tracer_provider(tracer_provider)
+
+# Metrics
+metric_reader = PeriodicExportingMetricReader(
+    OTLPMetricExporter(endpoint=f"{OTLP_ENDPOINT}/v1/metrics"),
+    export_interval_millis=10000,
+)
+meter_provider = MeterProvider(resource=resource, metric_readers=[metric_reader])
+metrics.set_meter_provider(meter_provider)
+
+# Auto-instrumentations
+PymongoInstrumentor().instrument()
+HTTPXClientInstrumentor().instrument()
+LoggingInstrumentor().instrument(set_logging_format=True)
+
+# Inject traceId/spanId into Python logs
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s [%(name)s] [traceId=%(otelTraceID)s spanId=%(otelSpanID)s] %(message)s",
+)

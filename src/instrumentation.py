@@ -11,6 +11,10 @@ from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
+from opentelemetry._logs import set_logger_provider
+from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
+from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
+from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
 from opentelemetry.instrumentation.pymongo import PymongoInstrumentor
 from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 from opentelemetry.instrumentation.logging import LoggingInstrumentor
@@ -39,12 +43,23 @@ metric_reader = PeriodicExportingMetricReader(
 meter_provider = MeterProvider(resource=resource, metric_readers=[metric_reader])
 metrics.set_meter_provider(meter_provider)
 
+# Logs
+logger_provider = LoggerProvider(resource=resource)
+set_logger_provider(logger_provider)
+logger_provider.add_log_record_processor(
+    BatchLogRecordProcessor(
+        OTLPLogExporter(endpoint=f"{OTLP_ENDPOINT}/v1/logs")
+    )
+)
+
 # Auto-instrumentations
 PymongoInstrumentor().instrument()
 HTTPXClientInstrumentor().instrument()
 LoggingInstrumentor().instrument(set_logging_format=True)
 
-# Inject traceId/spanId into Python logs
+# Inject traceId/spanId into Python logs and bridge to OTel
+handler = LoggingHandler(level=logging.NOTSET, logger_provider=logger_provider)
+logging.getLogger().addHandler(handler)
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s [%(name)s] [traceId=%(otelTraceID)s spanId=%(otelSpanID)s] %(message)s",

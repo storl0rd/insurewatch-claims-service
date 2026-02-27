@@ -57,7 +57,7 @@ logger_provider = LoggerProvider(resource=resource)
 set_logger_provider(logger_provider)
 logger_provider.add_log_record_processor(
     BatchLogRecordProcessor(
-        OTLPLogExporter(endpoint=f"{OTLP_ENDPOINT}/v1/logs")
+        OTLPLogExporter(endpoint=f"{OTLP_ENDPOINT}/v1/logs", headers=headers)
     )
 )
 

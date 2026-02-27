@@ -20,6 +20,15 @@ from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 from opentelemetry.instrumentation.logging import LoggingInstrumentor
 
 OTLP_ENDPOINT = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318")
+OTLP_HEADERS = os.getenv("OTEL_EXPORTER_OTLP_HEADERS", "")
+
+# Parse headers from comma-separated format: "key1=value1,key2=value2"
+headers = {}
+if OTLP_HEADERS:
+    for header in OTLP_HEADERS.split(','):
+        if '=' in header:
+            key, value = header.split('=', 1)
+            headers[key.strip()] = value.strip()
 
 resource = Resource.create({
     "service.name": "claims-service",
@@ -31,13 +40,13 @@ resource = Resource.create({
 # Traces
 tracer_provider = TracerProvider(resource=resource)
 tracer_provider.add_span_processor(
-    BatchSpanProcessor(OTLPSpanExporter(endpoint=f"{OTLP_ENDPOINT}/v1/traces"))
+    BatchSpanProcessor(OTLPSpanExporter(endpoint=f"{OTLP_ENDPOINT}/v1/traces", headers=headers))
 )
 trace.set_tracer_provider(tracer_provider)
 
 # Metrics
 metric_reader = PeriodicExportingMetricReader(
-    OTLPMetricExporter(endpoint=f"{OTLP_ENDPOINT}/v1/metrics"),
+    OTLPMetricExporter(endpoint=f"{OTLP_ENDPOINT}/v1/metrics", headers=headers),
     export_interval_millis=10000,
 )
 meter_provider = MeterProvider(resource=resource, metric_readers=[metric_reader])
